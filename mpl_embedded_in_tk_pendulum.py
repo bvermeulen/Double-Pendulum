@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches as mpl_patches
 from matplotlib import lines as mpl_lines
+from scipy.integrate import ode
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 FIG_SIZE = (8, 6)
@@ -46,8 +47,8 @@ class DoublePendulum(MplMap):
     def __init__(self):
         # Physical constants and initial settings
         self.g = 9.8
-        self.damping1 = 0.5  # damping factor bob1
-        self.damping2 = 0.1  # dampling factor bob2
+        self.damping1 = 0.0  # damping factor bob1
+        self.damping2 = 0.0  # dampling factor bob2
         self.length_r1 = 2.0
         self.length_r2 = 4.0
         self.mass_bob1 = 5.0
@@ -102,7 +103,25 @@ class DoublePendulum(MplMap):
         self.blip()
 
     def switch_colors_of_bob(self):
-        self.color_bob1, self.color_bob2 = self.color2, self.color1
+        print('switch color')
+        self.color_bob1, self.color_bob2 = self.color_bob2, self.color_bob1
+        self.bob1.set_color(self.color_bob1)
+        self.bob2.set_color(self.color_bob2)
+        self.blip()
+
+    def toggle_trace_visible(self):
+        print(self.trace_line.get_visible())
+        if self.trace_line.get_visible():
+            self.trace_line.set_visible(False)
+        else:
+            self.trace_line.set_visible(True)
+        self.blip()
+
+
+    def clear_trace(self):
+        self.x_traces = []
+        self.y_traces = []
+        self.trace_line.set_data([0], [0])
         self.blip()
 
     @property
@@ -130,7 +149,7 @@ class DoublePendulum(MplMap):
     @m2.setter
     def m2(self, value):
         self.mass_bob2 = value
-        self.bob1.set_radius(0.2 + self.mass_bob2 * 0.02)
+        self.bob2.set_radius(0.2 + self.mass_bob2 * 0.02)
         self.blip()
 
     @property
@@ -189,6 +208,7 @@ class DoublePendulum(MplMap):
         else:
             return
 
+        self.calc_positions()
         self.blip()
 
     def on_release(self, _):
@@ -201,24 +221,28 @@ class DoublePendulum(MplMap):
 
     def stop_swing(self):
         self.break_the_loop = True
+        self.x_traces = []
+        self.y_traces = []
 
     def calc_positions(self):
         _x1, _y1 = self.calc_xy(self.l1, self.theta1)
         self.bob1.center = (_x1, _y1)
         self.stick1.set_data([0, _x1], [0, _y1])
 
-        _x2, _y2 = calc_xy(self.l2, self.theta2)
+        _x2, _y2 = self.calc_xy(self.l2, self.theta2)
         _y2 += _y1
         _x2 += _x1
         self.bob2.center = (_x2, _y2)
         self.stick2.set_data([_x1, _x2], [_y1, _y2])
 
+    def add_to_trace(self):
+        _x2, _y2 = self.bob2.center
         self.x_traces.append(_x2)
         self.y_traces.append(_y2)
-        self.trace_line.set_data(x_traces[:], y_traces[:])
+        self.trace_line.set_data(self.x_traces[:], self.y_traces[:])
 
     @staticmethod
-    def calc_theta(self, x, y, theta):
+    def calc_theta(x, y, theta):
         try:
             return np.arctan2(x, -y)
         except TypeError:
@@ -249,14 +273,14 @@ class DoublePendulum(MplMap):
         _num3 = 2 * self.g * self.m2 * np.cos(t2) * _sin_dt + \
                 2 * self.g * self.m1 * np.sin(t1)
         _num4 = 2 * (self.k1 * w1 - self.k2 * w2 * np.cos(dt))
-        w1_dot = (_num1 + _num2 + _num3 + _num4)/ (-2 * l1 * _den1)
+        w1_dot = (_num1 + _num2 + _num3 + _num4)/ (-2 * self.l1 * _den1)
 
         _num1 = self.m2 * self.l2 * w2 * w2 * np.sin(2*dt)
         _num2 = 2 * (self.m1 + self.m2) * self.l1 * w1 * w1 * _sin_dt
         _num3 = 2 * self.g * (self.m1 + self.m2) * np.cos(t1) * _sin_dt
         _num4 = 2 * (self.k1 * w1 * np.cos(dt) - \
                     self.k2 * w2 * (self.m1 + self.m2)/ self.m2)
-        w2_dot = (_num1 + _num2 + _num3 + _num4)/ (2 * l2 *_den1)
+        w2_dot = (_num1 + _num2 + _num3 + _num4)/ (2 * self.l2 *_den1)
 
         state_differentiated = np.zeros(4)
         state_differentiated[0] = w1
@@ -288,20 +312,19 @@ class DoublePendulum(MplMap):
         _time = t_initial
 
         dp_integrator = ode(self.get_derivatives_double_pendulum).set_integrator('vode')
-        state = np.array([self.theta1_initial, self.theta1_dot_initial,
-                          self.theta2_initial, self.theta2_dot_initial])
+        state = np.array([self.theta1, self.theta1_dot_initial,
+                          self.theta2, self.theta2_dot_initial])
         dp_integrator.set_initial_value(state, t_initial)
 
-        _x2, _y2 = self.bob2.center
-        self.x_traces.append(_x2)
-        self.y_traces.append(_y2)
+        self.add_to_trace()
 
         actual_start_time = current_time()
-        while dp_integrator.successful():
+        while dp_integrator.successful() and not self.break_the_loop:
 
             self.theta1, _, self.theta2, _ = state
 
             self.calc_positions()
+            self.add_to_trace()
 
             running_time = current_time() - actual_start_time
             check_drift(_time, running_time)
@@ -326,40 +349,46 @@ class TkHandler():
         self.root.wm_title("Double Pendulum")
 
         sliders_frame = tk.Frame(self.root)
-        sliders = {'gravity': [0, 100, 1],  # {key: [min, max, resolution]}
-                   'mass_bob1':[1, 10, 0.1],
-                   'mass_bob2': [1, 10, 0.1],
-                   'length_r1':[0.1, 10, 0.1],
-                   'length_r2':[0.1, 10, 0.1],
-                   'damping1': [0, 1, 0.1],
-                   'damping2': [0, 1, 0.1],
+        sliders = {'gravity':   {'label':'Gravity   ', 'settings': [0, 30, 1]},        # 'settings': [min, max, resolution]
+                   'mass_bob1': {'label':'Mass bob 1', 'settings': [1, 10, 0.1]},
+                   'mass_bob2': {'label':'Mass bob 2', 'settings': [1, 10, 0.1]},
+                   'length_r1': {'label':'Length r1 ', 'settings': [0.1, 10, 0.1]},
+                   'length_r2': {'label':'Length r2 ', 'settings': [0.1, 10, 0.1]},
+                   'damping1':  {'label':'Damping 1 ', 'settings': [0, 1, 0.1]},
+                   'damping2':  {'label':'Damping 2 ', 'settings': [0, 1, 0.1]},
                   }
-        def create_slider(name, _min, _max, resolution):
+
+        def create_slider(slider_key, slider_params):
+            _min, _max, _resolution = [val for val in slider_params['settings']]
+
             slider_frame = tk.Frame(sliders_frame)
-            label_slider = tk.Label(slider_frame, text=f'\n{name:<11}: ')
-            slider = tk.Scale(slider_frame, from_=_min, to=_max,
-                              resolution=resolution,
+            label_slider = tk.Label(slider_frame, font=("TkFixedFont"),
+                                    text=f'\n{slider_params["label"]:<11s}')
+            slider = tk.Scale(slider_frame, from_=_min, to=_max, resolution=_resolution,
                               orient=tk.HORIZONTAL,
                               sliderlength=15,
                               length=150,
-                              command=lambda value: self._set_value(value, name))
-            slider.set(getattr(self.pendulum, name))
+                              command=lambda value: self._set_value(value, slider_key))
+            slider.set(getattr(self.pendulum, slider_key))
             label_slider.pack(side=tk.LEFT)
             slider.pack(side=tk.LEFT)
             slider_frame.pack()
 
-        for key, val in sliders.items():
-            print(key, val)
-            create_slider(key, *val)
+        for key, slider_params in sliders.items():
+            print(key, slider_params)
+            create_slider(key, slider_params)
 
         buttons_frame = tk.Frame(self.root)
         tk.Button(buttons_frame, text='Quit', command=self._quit)\
             .pack(side=tk.LEFT)
-        tk.Button(buttons_frame, text='Green',\
-            command=lambda *args: self._set_color('green', *args))\
+        tk.Button(buttons_frame, text='Switch colors',\
+            command=lambda *args: self._set_colors(*args))\
             .pack(side=tk.LEFT)
-        tk.Button(buttons_frame, text='Red',\
-            command=lambda *args: self._set_color('red', *args))\
+        tk.Button(buttons_frame, text='Trace on/ off',\
+            command=lambda *args: self._toggle_trace_visible(*args))\
+            .pack(side=tk.LEFT)
+        tk.Button(buttons_frame, text='Clear trace',\
+            command=lambda *args: self._clear_trace(*args))\
             .pack(side=tk.LEFT)
         tk.Button(buttons_frame, text='Start', command=self._start)\
             .pack(side=tk.LEFT)
@@ -380,8 +409,14 @@ class TkHandler():
         self.root.quit()
         self.root.destroy()
 
-    def _set_color(self, color):
-        self.pendulum.color = color
+    def _set_colors(self):
+        self.pendulum.switch_colors_of_bob()
+
+    def _toggle_trace_visible(self):
+        self.pendulum.toggle_trace_visible()
+
+    def _clear_trace(self):
+        self.pendulum.clear_trace()
 
     def _set_value(self, value, name):
         value = float(value)
