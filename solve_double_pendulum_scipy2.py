@@ -8,11 +8,11 @@ from scipy.integrate import ode
 # Physical constants
 g = 9.8
 k1 = 0.5  # damping factor bob1
-k2 = 0.1  # dampling factor bob2
+k2 = 0.5  # dampling factor bob2
 length_r1 = 3.0
-length_r2 = 0.2
-mass_bob1 = 10.0
-mass_bob2 = 30.0
+length_r2 = 6.0
+mass_bob1 = 5.0
+mass_bob2 = 5.0
 plotsize = 1.10 * (length_r1 + length_r2)
 
 # initial state
@@ -65,7 +65,7 @@ def get_derivatives_double_pendulum(t, state):
     _num1 = m2 * l2 * w2 * w2 * np.sin(2*dt)
     _num2 = 2 * (m1 + m2) * l1 * w1 * w1 * _sin_dt
     _num3 = 2 * g * (m1 + m2) * np.cos(t1) * _sin_dt
-    _num4 = 2 * (k1 * t1 * np.cos(dt) - k2 * w2 * (m1 + m2)/ m2)
+    _num4 = 2 * (k1 * w1 * np.cos(dt) - k2 * w2 * (m1 + m2)/ m2)
     w2_dot = (_num1 + _num2 + _num3 + _num4)/ (2 * l2 *_den1)
 
     state_differentiated = np.zeros(4)
