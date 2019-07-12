@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches as mpl_patches
 from matplotlib import lines as mpl_lines
-from scipy.integrate import ode
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from scipy.integrate import ode
 
 FIG_SIZE = (8, 6)
 TICK_INTERVAL = 1.5
@@ -55,7 +55,7 @@ class DoublePendulum(MplMap):
         self.mass_bob2 = 2.5
         self.color_bob1 = 'green'
         self.color_bob2 = 'red'
-        self.plotsize = 1.10 * (self.length_r1 + self.length_r2)    ####### check
+        self.plotsize = 1.10 * (self.length_r1 + self.length_r2)
 
         # initial state
         self.theta1_initial = + 120 / 180 * np.pi
@@ -94,7 +94,7 @@ class DoublePendulum(MplMap):
         self.x_traces = []
         self.y_traces = []
         self.trace_line, = self.ax.plot([0], [0], color='black',
-                                   linewidth=0.2, zorder=1)
+                                        linewidth=0.2, zorder=1)
 
         self.current_object = None
         self.current_dragging = False
@@ -116,7 +116,6 @@ class DoublePendulum(MplMap):
         else:
             self.trace_line.set_visible(True)
         self.blip()
-
 
     def clear_trace(self):
         self.x_traces = []
@@ -293,7 +292,7 @@ class DoublePendulum(MplMap):
     def plot_double_pendulum(self):
         ''' methods to plot pendulum in matplotlib
         '''
-        # note a frame per second (fps) > 20 the actual time
+        # note a frame per second (fps) > 24 the actual time
         # may not be able to keep up with model time
 
         fps = 24
@@ -306,7 +305,7 @@ class DoublePendulum(MplMap):
             # check every 5 seconds
             if _time % 5 < seconds_per_frame:
                 print(f'time (ms): {1000*_time:,.0f}, '
-                    f'drift: {1000*(running_time - _time):,.0f}')
+                      f'drift: {1000*(running_time - _time):,.0f}')
 
         t_initial = 0
         _time = t_initial
@@ -349,7 +348,7 @@ class TkHandler():
         self.root.wm_title("Double Pendulum")
 
         sliders_frame = tk.Frame(self.root)
-        sliders = {'gravity':   {'label':'Gravity   ', 'settings': [0, 30, 1]},        # 'settings': [min, max, resolution]
+        sliders = {'gravity':   {'label':'Gravity   ', 'settings': [0, 30, 1]},        # 'settings': [min, max, resolution] # pylint: disable=C0301
                    'mass_bob1': {'label':'Mass bob 1', 'settings': [1, 10, 0.1]},
                    'mass_bob2': {'label':'Mass bob 2', 'settings': [1, 10, 0.1]},
                    'length_r1': {'label':'Length r1 ', 'settings': [0.1, 10, 0.1]},
@@ -451,6 +450,7 @@ class TkHandler():
 
     def _stop(self):
         self.pendulum.stop_swing()
+
 
 def main():
     root = tk.Tk()
