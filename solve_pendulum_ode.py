@@ -6,7 +6,7 @@ import time
 
 # Physical constants
 g = 9.8
-length = 2.5
+length = 5.0
 damping_factor = 0.1
 mass_of_bob = 2
 
