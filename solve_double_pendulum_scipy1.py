@@ -73,10 +73,10 @@ def get_derivatives_double_pendulum(t, state):
 
 dp_integrator = ode(get_derivatives_double_pendulum).set_integrator('vode')
 
-def plot_double_pendulum(fig, trace_line):
+def plot_double_pendulum(fig, trace_line, ax2, theta_line):
     # note a frame per second (fps) > 10 the actual time
     # may not be able to keep up with model time
-    fps = 24
+    fps = 15
     seconds_per_frame = 1/fps
 
     def current_time():
@@ -99,6 +99,9 @@ def plot_double_pendulum(fig, trace_line):
     x_traces = [_x2]
     y_traces = [_y2]
 
+    time_window = 20
+    time_base = - time_window
+
     actual_start_time = current_time()
     while dp_integrator.successful():
 
@@ -118,6 +121,19 @@ def plot_double_pendulum(fig, trace_line):
         y_traces.append(_y2)
         trace_line.set_data(x_traces[:], y_traces[:])
 
+        if _time % time_window < seconds_per_frame:
+            time_base += time_window
+            ax2.set_xlim(time_base, time_base+time_window)
+            time_values = []
+            theta_values = []
+
+        time_values.append(_time)
+        angle = theta1 % (2*np.pi)
+        if np.pi < angle and angle < 2*np.pi:
+            angle -= 2*np.pi
+        theta_values.append(np.degrees(angle))
+        theta_line.set_data(time_values, theta_values)
+
         running_time = current_time() - actual_start_time
         check_drift(_time, running_time)
 
@@ -132,28 +148,31 @@ def plot_double_pendulum(fig, trace_line):
         state = dp_integrator.integrate(dp_integrator.t + seconds_per_frame)
         _time += seconds_per_frame
 
-        if _time > 15:
+        if _time > 500:
             return
 
 
 def main():
     '''  set plot and action
     '''
-    fig, ax = plt.subplots(figsize=(5, 5))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 5))
     fig.canvas.set_window_title('Double Pendulum')
-    ax.set_title('s1: click on green bob to start ...')
-    ax.set_xlim(-plotsize, plotsize)
-    ax.set_ylim(-plotsize, plotsize)
-    ax.set_aspect(1)
-    trace_line, = ax.plot([0], [0], color='black', linewidth=0.2, zorder=1)
+    ax1.set_title('s1: click on green bob to start ...')
+    ax1.set_xlim(-plotsize, plotsize)
+    ax1.set_ylim(-plotsize, plotsize)
+    ax1.set_aspect(1)
+    trace_line, = ax1.plot([0], [0], color='black', linewidth=0.2, zorder=1)
+
+    theta_line, = ax2.plot([0], [0], color='black', linewidth=0.5, zorder=1)
+    ax2.set_ylim(-200, 200)
 
     def on_pick(event):
-        plot_double_pendulum(fig, trace_line)
+        plot_double_pendulum(fig, trace_line, ax2, theta_line)
 
-    ax.add_patch(bob1)
-    ax.add_line(stick1)
-    ax.add_patch(bob2)
-    ax.add_line(stick2)
+    ax1.add_patch(bob1)
+    ax1.add_line(stick1)
+    ax1.add_patch(bob2)
+    ax1.add_line(stick2)
 
     bob1.figure.canvas.mpl_connect('pick_event', on_pick)
 
