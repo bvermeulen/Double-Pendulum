@@ -128,9 +128,7 @@ def plot_double_pendulum(fig, trace_line, ax2, theta_line):
             theta_values = []
 
         time_values.append(_time)
-        angle = theta1 % (2*np.pi)
-        if np.pi < angle and angle < 2*np.pi:
-            angle -= 2*np.pi
+        angle = -np.pi + (theta1 - np.pi) % (2 * np.pi)
         theta_values.append(np.degrees(angle))
         theta_line.set_data(time_values, theta_values)
 
