@@ -98,7 +98,7 @@ class DoublePendulum(MplMap):
         self.plotsize = 1.10 * (self.length_r1 + self.length_r2)
 
         # initial state
-        if angle1 and angle2:
+        if _a1 and _a2:
             self.theta1_initial = np.radians(_a1)
             self.theta2_initial = np.radians(_a2)
         else:
@@ -661,6 +661,7 @@ if __name__ == "__main__":
     main_arguments = sys.argv
     angle1 = None
     angle2 = None
+
     if len(main_arguments) == 3:
         try:
             angle1 = float(main_arguments[1])
