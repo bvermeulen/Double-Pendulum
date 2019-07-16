@@ -14,6 +14,8 @@ X_MIN, X_MAX = -10, 10
 Y_MIN, Y_MAX = -10, 10
 TWOPI = 2*np.pi
 PI = np.pi
+update_label_interval_ms = 150
+fps = 24
 
 
 class MplMap():
@@ -246,7 +248,9 @@ class DoublePendulum(MplMap):
             self.theta1_initial = self.theta1
 
         elif self.current_object == self.bob2:
-            self.theta2 = self.calc_theta(event.xdata, event.ydata, self.theta2)
+            _x1, _y1 = self.bob1.center
+            self.theta2 = self.calc_theta(
+                event.xdata - _x1, event.ydata - _y1, self.theta2)
             self.theta2_initial = self.theta2
 
         else:
@@ -342,7 +346,6 @@ class DoublePendulum(MplMap):
         # note a frame per second (fps) > 24 the actual time
         # may not be able to keep up with model time
 
-        fps = 24
         seconds_per_frame = 1/fps
 
         def current_time():
@@ -386,15 +389,58 @@ class DoublePendulum(MplMap):
 
 
 class TkHandler():
+    ''' Methods to handle the tkinter GUI and links with matplotlib canvases and pendulum
+        class. Methods:
 
+        __init__:
+            parameters:
+            :root: tk root
+            :cnvs_pendulum: maplotlib canvas showing the movement of the pendulum
+            :cnvs_graphs: matplotlib canvas showing the graphs of theta1 and theta2
+            :doublependulum: class handling the doublependulum status and positions
+
+        create_slider_status_frame:
+            Creates frame of the sliders and status values of initial theta1,
+            initial theta2, time, theta1, theta2
+
+            The slider values are connected to the pendulum class by the _set_value
+            function that sets values for: gravity, mass1, mass2, length1, length2,
+            damping1, damping2
+
+        update_labels:
+            Updates the status values. Update rate is set by: update_label_interval_ms
+
+        create_button_frame:
+            Creates frame with control buttons and links with button functions:
+                _quit: quits the program
+
+                The following button functions connect to the pendulum class to change
+                status:
+                _set_colors: swaps colors of the bobs
+                _toggle_trace_visible: toggles trace on or off
+                _clear_trace: clears the trace
+                _start: starts the pendulum swing
+                _stop: stops the pendulum swing
+
+        create_grid:
+            Creates the GUI grid
+    '''
     def __init__(self, root, cnvs_pendulum, cnvs_graphs, doublependulum):
         self.root = root
+        self.cnvs_pendulum = cnvs_pendulum
+        self.cnvs_graphs = cnvs_graphs
         self.pendulum = doublependulum
 
         self.root.wm_title("Double Pendulum")
+        self.create_slider_status_frame()
+        self.create_button_frame()
+        self.create_grid()
+        self.update_labels()
+        tk.mainloop()
 
-        sliders_status_frame = tk.Frame(self.root)
-        sliders_frame = tk.Frame(sliders_status_frame)
+    def create_slider_status_frame(self):
+        self.sliders_status_frame = tk.Frame(self.root)
+        sliders_frame = tk.Frame(self.sliders_status_frame)
         sliders = {'gravity':   {'label':'Gravity   ', 'settings': [0, 30, 1]},        # 'settings': [min, max, resolution] # pylint: disable=C0301
                    'mass_bob1': {'label':'Mass bob 1', 'settings': [1, 10, 0.1]},
                    'mass_bob2': {'label':'Mass bob 2', 'settings': [1, 10, 0.1]},
@@ -421,78 +467,72 @@ class TkHandler():
             slider_frame.pack()
 
         for key, slider_params in sliders.items():
-            print(key, slider_params)
             create_slider(key, slider_params)
 
-        status_frame = tk.Frame(sliders_status_frame)
-        label_status1 = tk.Label(status_frame,
-                                 font=("TkFixedFont"),
-                                 text=f'\ntheta1 initial: '
-                                      f'{self.pendulum.angle1_initial:+3.0f}')
-        label_status1.pack(anchor=tk.W)
-        label_status2 = tk.Label(status_frame,
-                                 font=("TkFixedFont"),
-                                 text=f'theta2 initial: '
-                                      f'{self.pendulum.angle2_initial:+3.0f}')
-        label_status2.pack(anchor=tk.W)
-        label_status3 = tk.Label(status_frame, font=("TkFixedFont"),
-                                 text=f'time: '
-                                      f'{self.pendulum.time:+3.1f}')
-        label_status3.pack(anchor=tk.W)
-        label_status4 = tk.Label(status_frame, font=("TkFixedFont"),
-                                 text=f'theta1: '
-                                      f'{self.pendulum.angle1:+3.0f}')
-        label_status4.pack(anchor=tk.W)
-        label_status5 = tk.Label(status_frame, font=("TkFixedFont"),
-                                 text=f'theta2: '
-                                      f'{self.pendulum.angle2:+3.0f}')
-        label_status5.pack(anchor=tk.W)
+        status_frame = tk.Frame(self.sliders_status_frame)
+        self.label_status1 = tk.Label(status_frame, font=("TkFixedFont"),)
+        self.label_status1.pack(anchor=tk.W)
 
-        def update_status():
-            label_status1.config(text=f'\ntheta1 initial: '
-                                      f'{self.pendulum.angle1_initial:+3.0f}')
-            label_status2.config(text=f'theta2 initial: '
-                                      f'{self.pendulum.angle2_initial:+3.0f}')
-            label_status3.config(text=f'time: '
-                                      f'{self.pendulum.time:+3.1f}')
-            label_status4.config(text=f'theta1: '
-                                      f'{self.pendulum.angle1:+3.0f}')
-            label_status5.config(text=f'theta2: '
-                                      f'{self.pendulum.angle2:+3.0f}')
-            self.root.after(150, update_status)
+        self.label_status2 = tk.Label(status_frame, font=("TkFixedFont"),)
+        self.label_status2.pack(anchor=tk.W)
+
+        self.label_status3 = tk.Label(status_frame, font=("TkFixedFont"),)
+        self.label_status3.pack(anchor=tk.W)
+
+        self.label_status4 = tk.Label(status_frame, font=("TkFixedFont"),)
+        self.label_status4.pack(anchor=tk.W)
+
+        self.label_status5 = tk.Label(status_frame, font=("TkFixedFont"),)
+        self.label_status5.pack(anchor=tk.W)
 
         sliders_frame.pack(anchor=tk.NW)
         status_frame.pack(anchor=tk.W)
 
-        buttons_frame = tk.Frame(self.root)
-        tk.Button(buttons_frame, text='Quit', command=self._quit)\
-            .pack(side=tk.LEFT)
-        tk.Button(buttons_frame, text='Switch colors',\
-            command=lambda *args: self._set_colors(*args))\
-            .pack(side=tk.LEFT)
-        tk.Button(buttons_frame, text='Trace on/ off',\
-            command=lambda *args: self._toggle_trace_visible(*args))\
-            .pack(side=tk.LEFT)
-        tk.Button(buttons_frame, text='Clear trace',\
-            command=lambda *args: self._clear_trace(*args))\
-            .pack(side=tk.LEFT)
-        tk.Button(buttons_frame, text='Start', command=self._start)\
-            .pack(side=tk.LEFT)
-        tk.Button(buttons_frame, text='Stop', command=self._stop)\
-            .pack(side=tk.LEFT)
+    def update_labels(self):
+        self.label_status1.config(
+            text=f'\ntheta1 initial: {self.pendulum.angle1_initial:+3.2f}')
+        self.label_status2.config(
+            text=f'theta2 initial: {self.pendulum.angle2_initial:+3.2f}')
+        self.label_status3.config(
+            text=f'time: {self.pendulum.time:+3.1f}')
+        self.label_status4.config(
+            text=f'theta1: {self.pendulum.angle1:+3.0f}')
+        self.label_status5.config(
+            text=f'theta2: {self.pendulum.angle2:+3.0f}')
+        self.root.after(update_label_interval_ms, self.update_labels)
 
+    def create_button_frame(self):
+        self.buttons_frame = tk.Frame(self.root)
+
+        tk.Button(
+            self.buttons_frame, text='Quit', command=self._quit).pack(side=tk.LEFT)
+        tk.Button(
+            self.buttons_frame, text='Switch colors',
+            command=lambda *args: self._set_colors(*args)).pack(side=tk.LEFT)
+        tk.Button(
+            self.buttons_frame, text='Trace on/ off',
+            command=lambda *args: self._toggle_trace_visible(*args)).pack(side=tk.LEFT)
+        tk.Button(
+            self.buttons_frame, text='Clear trace',
+            command=lambda *args: self._clear_trace(*args)).pack(side=tk.LEFT)
+        tk.Button(
+            self.buttons_frame, text='Start', command=self._start).pack(side=tk.LEFT)
+        tk.Button(
+            self.buttons_frame, text='Stop', command=self._stop).pack(side=tk.LEFT)
+
+    def create_grid(self):
         # fill the grid
         tk.Grid.rowconfigure(self.root, 0, weight=1)
         tk.Grid.columnconfigure(self.root, 0, weight=1)
-        sliders_status_frame.grid(row=0, column=0, sticky=tk.NW)
-        cnvs_graphs.get_tk_widget().grid(row=1, column=0, rowspan=1, columnspan=2,
-                                         sticky=tk.W+tk.E+tk.N+tk.S)
-        cnvs_pendulum.get_tk_widget().grid(row=0, column=1, rowspan=1, columnspan=1,
-                                           sticky=tk.W+tk.E+tk.N+tk.S)
-        buttons_frame.grid(row=2, column=0, columnspan=2, sticky=tk.W)
+        self.sliders_status_frame.grid(row=0, column=0, sticky=tk.NW)
+        self.cnvs_graphs.get_tk_widget().\
+            grid(row=1, column=0, rowspan=1, columnspan=2,
+                 sticky=tk.W+tk.E+tk.N+tk.S)
+        self.cnvs_pendulum.get_tk_widget().\
+            grid(row=0, column=1, rowspan=1, columnspan=1,
+                 sticky=tk.W+tk.E+tk.N+tk.S)
+        self.buttons_frame.grid(row=2, column=0, columnspan=2, sticky=tk.W)
 
-        update_status()
-        tk.mainloop()
 
     def _quit(self):
         self.root.quit()

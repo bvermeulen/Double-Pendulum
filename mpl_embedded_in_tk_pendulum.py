@@ -48,14 +48,14 @@ class DoublePendulum(MplMap):
         # Physical constants and initial settings
         self.g = 9.8
         self.damping1 = 0.0  # damping factor bob1
-        self.damping2 = 0.0  # dampling factor bob2
+        self.damping2 = 0.0  # damping factor bob2
         self.length_r1 = 2.0
         self.length_r2 = 4.0
         self.mass_bob1 = 5.0
         self.mass_bob2 = 2.5
         self.color_bob1 = 'green'
         self.color_bob2 = 'red'
-        self.plotsize = 1.10 * (self.length_r1 + self.length_r2)
+        self.plotsize = 1.10 * (self.length_r1 + self.length_r2)  # check this out not used now
 
         # initial state
         self.theta1_initial = + 120 / 180 * np.pi
@@ -358,7 +358,7 @@ class TkHandler():
                   }
 
         def create_slider(slider_key, slider_params):
-            _min, _max, _resolution = [val for val in slider_params['settings']]
+            _min, _max, _resolution = slider_params['settings']
 
             slider_frame = tk.Frame(sliders_frame)
             label_slider = tk.Label(slider_frame, font=("TkFixedFont"),
