@@ -15,20 +15,23 @@ Y_MIN, Y_MAX = -10, 10
 TWOPI = 2*np.pi
 PI = np.pi
 update_label_interval_ms = 150
-fps = 20
+fps = 24
 seconds_per_frame = 1 / fps
-time_window_graphs = 20
+time_window_graphs = 15
+update_graph_interval_s = 0.25
 
 
 class MplMap():
-    '''  set up map
+    ''' set up map consisting of two figures: fig_pendulum and fig_graphs
+        fig_pendulum: has one ax showing the pendulum movements
+        fig_graphs: has two ax showing plots of theta1 and theta2
     '''
     @classmethod
     def settings(cls, root, fig_size_pendulum, fig_size_graphs):
         # set the plot outline, including axes going through the origin
         cls.root = root
 
-        cls.fig_pendulum, cls.ax_pendulum = plt.subplots(figsize=fig_size_pendulum)
+        cls.fig_pendulum, cls.ax_pendulum = plt.subplots(1, figsize=fig_size_pendulum)
         cls.ax_pendulum.set_xlim(X_MIN, X_MAX)
         cls.ax_pendulum.set_ylim(Y_MIN, Y_MAX)
         cls.ax_pendulum.set_aspect(1)
@@ -44,20 +47,26 @@ class MplMap():
         cls.ax_pendulum.spines['top'].set_color('none')
         cls.fig_pendulum.tight_layout()
         cls.canvas_pendulum = FigureCanvasTkAgg(cls.fig_pendulum, master=cls.root)
+        cls.canvas_pendulum.get_tk_widget().configure(highlightthickness=1)
 
-        cls.fig_graphs, (cls.ax_graph_1, cls.ax_graph_2) = \
-            plt.subplots(1, 2, figsize=fig_size_graphs)
-        cls.ax_graph_1.set_ylim(-190, 190)
+
+        cls.fig_graphs, (cls.ax_graph_1, cls.ax_graph_2) = plt.subplots(
+            1, 2, figsize=fig_size_graphs)
+        cls.ax_graph_1.set_ylim(-180, 180)
         cls.ax_graph_1.set_yticks([-180, -90, 0, 90, 180])
         cls.ax_graph_1.tick_params(axis='y', which='major', labelsize=6)
         cls.ax_graph_1.tick_params(axis='x', which='major', labelsize=6)
+        cls.ax_graph_1.grid(True)
 
         cls.ax_graph_2.set_ylim(-190, 190)
         cls.ax_graph_2.set_yticks([-180, -90, 0, 90, 180])
         cls.ax_graph_2.tick_params(axis='y', which='major', labelsize=6)
         cls.ax_graph_2.tick_params(axis='x', which='major', labelsize=6)
+        cls.ax_graph_2.grid(True)
+
         cls.fig_graphs.tight_layout()
         cls.canvas_graphs = FigureCanvasTkAgg(cls.fig_graphs, master=cls.root)
+        cls.canvas_graphs.get_tk_widget().configure(highlightthickness=1)
 
     @classmethod
     def get_cnvs_pendulum(cls):
@@ -69,7 +78,8 @@ class MplMap():
 
 
 class DoublePendulum(MplMap):
-    '''  class defining methods for Pendulum
+    ''' class defining methods for Pendulum for positions and motions of a double
+        pendulum
     '''
     def __init__(self):
         # Physical constants and initial settings
@@ -313,6 +323,17 @@ class DoublePendulum(MplMap):
         return x, y
 
     def blip(self):
+        # self.bob1.figure.canvas.draw()
+        # self.bob2.figure.canvas.draw()
+        # self.stick1.figure.canvas.draw()
+        # self.stick2.figure.canvas.draw()
+        # self.trace_line.figure.canvas.draw()
+        # self.bob1.figure.canvas.flush_events()
+        # self.bob2.figure.canvas.flush_events()
+        # self.stick1.figure.canvas.flush_events()
+        # self.stick2.figure.canvas.flush_events()
+        # self.trace_line.figure.canvas.flush_events()
+
         self.fig_pendulum.canvas.draw()
         self.fig_pendulum.canvas.flush_events()
 
@@ -363,13 +384,12 @@ class DoublePendulum(MplMap):
                 print(f'time (ms): {1000*_time:,.0f}, '
                       f'drift: {1000*(running_time - _time):,.0f}')
 
-        t_initial = 0
-        self._time = t_initial
+        self._time = 0
 
         dp_integrator = ode(self.get_derivatives_double_pendulum).set_integrator('vode')
         state = np.array([self.theta1, self.theta1_dot_initial,
                           self.theta2, self.theta2_dot_initial])
-        dp_integrator.set_initial_value(state, t_initial)
+        dp_integrator.set_initial_value(state, self._time)
 
         self.add_to_trace()
 
@@ -381,7 +401,7 @@ class DoublePendulum(MplMap):
             self.calc_positions()
             self.add_to_trace()
 
-            if self._time % 0.25 < seconds_per_frame:
+            if self._time % update_graph_interval_s < seconds_per_frame:
                 self.theta_graphs.plot_thetas(self._time, self.theta1, self.theta2)
 
             running_time = current_time() - actual_start_time
@@ -402,14 +422,14 @@ class ThetaGraphs(MplMap):
     '''
     def __init__(self):
         self.time_window = time_window_graphs
-        self.time_base = - self.time_window
+        self.time_base = 0
         self.time_values = []
         self.angle1_values = []
         self.angle2_values = []
         self.theta1_graph, = self.ax_graph_1.plot(
-            [0], [0], color='black', linewidth=0.5, zorder=1)
+            [0], [0], color='black', linewidth=0.5, zorder=2)
         self.theta2_graph, = self.ax_graph_2.plot(
-            [0], [0], color='black', linewidth=0.5, zorder=1)
+            [0], [0], color='black', linewidth=0.5, zorder=2)
         self.ax_graph_1.set_xlim(
             self.time_base, self.time_base + self.time_window)
         self.ax_graph_2.set_xlim(
@@ -417,14 +437,19 @@ class ThetaGraphs(MplMap):
 
     def plot_thetas(self, _time, theta1, theta2):
         if _time % self.time_window < seconds_per_frame:
+
+            # reset when time is zero
+            if _time < seconds_per_frame:
+                self.time_base = -self.time_window
+                self.angle1_values = []
+                self.angle2_values = []
+                self.time_values = []
+
             self.time_base += self.time_window
             self.ax_graph_1.set_xlim(
                 self.time_base, self.time_base + self.time_window)
             self.ax_graph_2.set_xlim(
                 self.time_base, self.time_base + self.time_window)
-            self.time_values = []
-            self.angle1_values = []
-            self.angle2_values = []
 
         self.time_values.append(_time)
 
@@ -434,10 +459,14 @@ class ThetaGraphs(MplMap):
         self.angle2_values.append(np.degrees(-PI + (theta2 - PI) % TWOPI))
         self.theta2_graph.set_data(self.time_values, self.angle2_values)
 
-        self.theta1_graph.figure.canvas.draw()
-        self.theta2_graph.figure.canvas.draw()
-        self.theta1_graph.figure.canvas.flush_events()
-        self.theta2_graph.figure.canvas.flush_events()
+
+        self.fig_graphs.canvas.draw()
+        self.fig_graphs.canvas.flush_events()
+
+        # self.theta1_graph.figure.canvas.draw()
+        # self.theta2_graph.figure.canvas.draw()
+        # self.theta1_graph.figure.canvas.flush_events()
+        # self.theta2_graph.figure.canvas.flush_events()
 
 class TkHandler():
     ''' Methods to handle the tkinter GUI and links with matplotlib canvases and pendulum
@@ -492,17 +521,17 @@ class TkHandler():
     def create_slider_status_frame(self):
         self.sliders_status_frame = tk.Frame(self.root)
         sliders_frame = tk.Frame(self.sliders_status_frame)
-        sliders = {'gravity':   {'label':'Gravity   ', 'settings': [0, 30, 1]},        # 'settings': [min, max, resolution] # pylint: disable=C0301
-                   'mass_bob1': {'label':'Mass bob 1', 'settings': [1, 10, 0.1]},
-                   'mass_bob2': {'label':'Mass bob 2', 'settings': [1, 10, 0.1]},
-                   'length_r1': {'label':'Length r1 ', 'settings': [0.1, 10, 0.1]},
-                   'length_r2': {'label':'Length r2 ', 'settings': [0.1, 10, 0.1]},
-                   'damping1':  {'label':'Damping 1 ', 'settings': [0, 1, 0.1]},
-                   'damping2':  {'label':'Damping 2 ', 'settings': [0, 1, 0.1]},
+        sliders = {'gravity': {'label':'Gravity   ', 'settings': [0, 30, 1]},        # 'settings': [min, max, resolution] # pylint: disable=C0301
+                   'm1':      {'label':'Mass bob 1', 'settings': [1, 10, 0.1]},
+                   'm2':      {'label':'Mass bob 2', 'settings': [1, 10, 0.1]},
+                   'l1':      {'label':'Length r1 ', 'settings': [0.1, 10, 0.1]},
+                   'l2':      {'label':'Length r2 ', 'settings': [0.1, 10, 0.1]},
+                   'k1':      {'label':'Damping 1 ', 'settings': [0, 1, 0.1]},
+                   'k2':      {'label':'Damping 2 ', 'settings': [0, 1, 0.1]},
                   }
 
         def create_slider(slider_key, slider_params):
-            _min, _max, _resolution = [val for val in slider_params['settings']]
+            _min, _max, _resolution = slider_params['settings']
 
             slider_frame = tk.Frame(sliders_frame)
             label_slider = tk.Label(slider_frame, font=("TkFixedFont"),
@@ -572,22 +601,20 @@ class TkHandler():
             self.buttons_frame, text='Stop', command=self._stop).pack(side=tk.LEFT)
 
     def create_grid(self):
-        # fill the grid
         tk.Grid.rowconfigure(self.root, 0, weight=1)
         tk.Grid.columnconfigure(self.root, 0, weight=1)
         self.sliders_status_frame.grid(row=0, column=0, sticky=tk.NW)
-        self.cnvs_graphs.get_tk_widget().\
-            grid(row=1, column=0, rowspan=1, columnspan=2,
-                 sticky=tk.W+tk.E+tk.N+tk.S)
-        self.cnvs_pendulum.get_tk_widget().\
-            grid(row=0, column=1, rowspan=1, columnspan=1,
-                 sticky=tk.W+tk.E+tk.N+tk.S)
+        self.cnvs_graphs.get_tk_widget().grid(
+            row=1, column=0, rowspan=1, columnspan=2, sticky=tk.W+tk.E+tk.N+tk.S)
+        self.cnvs_pendulum.get_tk_widget().grid(
+            row=0, column=1, rowspan=1, columnspan=1, sticky=tk.W+tk.E+tk.N+tk.S)
         self.buttons_frame.grid(row=2, column=0, columnspan=2, sticky=tk.W)
 
 
     def _quit(self):
-        self.root.quit()
-        self.root.destroy()
+        self.pendulum.stop_swing()
+        self.root.after(100, self.root.quit)
+        self.root.after(100, self.root.destroy)
 
     def _set_colors(self):
         self.pendulum.switch_colors_of_bob()
@@ -605,22 +632,22 @@ class TkHandler():
         if name == 'gravity':
             self.pendulum.gravity = float(value)
 
-        elif name == 'mass_bob1':
+        elif name == 'm1':
             self.pendulum.m1 = float(value)
 
-        elif name == 'mass_bob2':
+        elif name == 'm2':
             self.pendulum.m2 = float(value)
 
-        elif name == 'length_r1':
+        elif name == 'l1':
             self.pendulum.l1 = float(value)
 
-        elif name == 'length_r2':
+        elif name == 'l2':
             self.pendulum.l2 = float(value)
 
-        elif name == 'damping1':
+        elif name == 'k1':
             self.pendulum.k1 = float(value)
 
-        elif name == 'damping2':
+        elif name == 'k2':
             self.pendulum.k2 = float(value)
 
         else:
