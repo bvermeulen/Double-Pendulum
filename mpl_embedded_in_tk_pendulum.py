@@ -84,7 +84,7 @@ class DoublePendulum(MplMap):
     ''' class defining methods for Pendulum for positions and motions of a double
         pendulum
     '''
-    def __init__(self, angle1, angle2):
+    def __init__(self, _a1, _a2):
         # Physical constants and initial settings
         self.g = 9.8
         self.damping1 = 0.0  # damping factor bob1
@@ -99,8 +99,8 @@ class DoublePendulum(MplMap):
 
         # initial state
         if angle1 and angle2:
-            self.theta1_initial = np.radians(angle1)
-            self.theta2_initial = np.radians(angle2)
+            self.theta1_initial = np.radians(_a1)
+            self.theta2_initial = np.radians(_a2)
         else:
             self.theta1_initial = + 120 / 180 * np.pi
             self.theta2_initial = + 180 / 180 * np.pi
@@ -651,11 +651,11 @@ class TkHandler():
         self.pendulum.stop_swing()
 
 
-def main(angle1, angle2):
+def main(_a1, _a2):
     root = tk.Tk()
     MplMap.settings(root, FIG_SIZE_PENDULUM, FIG_SIZE_GRAPHS)
     TkHandler(root, MplMap.get_cnvs_pendulum(),
-              MplMap.get_cnvs_graphs(), DoublePendulum(angle1, angle2))
+              MplMap.get_cnvs_graphs(), DoublePendulum(_a1, _a2))
 
 if __name__ == "__main__":
     main_arguments = sys.argv
