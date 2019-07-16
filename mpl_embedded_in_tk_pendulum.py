@@ -290,14 +290,14 @@ class DoublePendulum(MplMap):
 
     def start_swing(self):
         self.break_the_loop = False
+        self.theta1_initial = self.theta1
+        self.theta2_initial = self.theta2
+        self.y_traces = []
+        self.x_traces = []
         self.plot_double_pendulum()
 
     def stop_swing(self):
         self.break_the_loop = True
-        self.x_traces = []
-        self.y_traces = []
-        self.theta1_initial = self.theta1
-        self.theta2_initial = self.theta2
 
     def calc_positions(self):
         _x1, _y1 = self.calc_xy(self.l1, self.theta1)
