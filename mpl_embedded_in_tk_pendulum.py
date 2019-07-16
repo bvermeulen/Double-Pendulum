@@ -1,3 +1,4 @@
+import sys
 import tkinter as tk
 import time
 import numpy as np
@@ -7,17 +8,20 @@ from matplotlib import lines as mpl_lines
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from scipy.integrate import ode
 
-FIG_SIZE_PENDULUM = (5, 5)
-FIG_SIZE_GRAPHS = (5, 1)
-TICK_INTERVAL = 1.5
-X_MIN, X_MAX = -10, 10
-Y_MIN, Y_MAX = -10, 10
 TWOPI = 2*np.pi
 PI = np.pi
+
+FIG_SIZE_PENDULUM = (5, 5)
+X_MIN, X_MAX = -10, 10
+Y_MIN, Y_MAX = -10, 10
+TICK_INTERVAL = 1.5
+
+FIG_SIZE_GRAPHS = (5, 1)
+
 update_label_interval_ms = 150
 fps = 24
 seconds_per_frame = 1 / fps
-time_window_graphs = 15
+time_window_graphs = 20
 update_graph_interval_s = 0.25
 
 
@@ -31,7 +35,7 @@ class MplMap():
         # set the plot outline, including axes going through the origin
         cls.root = root
 
-        cls.fig_pendulum, cls.ax_pendulum = plt.subplots(1, figsize=fig_size_pendulum)
+        cls.fig_pendulum, cls.ax_pendulum = plt.subplots(figsize=fig_size_pendulum)
         cls.ax_pendulum.set_xlim(X_MIN, X_MAX)
         cls.ax_pendulum.set_ylim(Y_MIN, Y_MAX)
         cls.ax_pendulum.set_aspect(1)
@@ -49,7 +53,6 @@ class MplMap():
         cls.canvas_pendulum = FigureCanvasTkAgg(cls.fig_pendulum, master=cls.root)
         cls.canvas_pendulum.get_tk_widget().configure(highlightthickness=1)
 
-
         cls.fig_graphs, (cls.ax_graph_1, cls.ax_graph_2) = plt.subplots(
             1, 2, figsize=fig_size_graphs)
         cls.ax_graph_1.set_ylim(-180, 180)
@@ -66,7 +69,7 @@ class MplMap():
 
         cls.fig_graphs.tight_layout()
         cls.canvas_graphs = FigureCanvasTkAgg(cls.fig_graphs, master=cls.root)
-        cls.canvas_graphs.get_tk_widget().configure(highlightthickness=1)
+        cls.canvas_graphs.get_tk_widget().configure(highlightthickness=1, bg='yellow')
 
     @classmethod
     def get_cnvs_pendulum(cls):
@@ -81,7 +84,7 @@ class DoublePendulum(MplMap):
     ''' class defining methods for Pendulum for positions and motions of a double
         pendulum
     '''
-    def __init__(self):
+    def __init__(self, angle1, angle2):
         # Physical constants and initial settings
         self.g = 9.8
         self.damping1 = 0.0  # damping factor bob1
@@ -95,8 +98,12 @@ class DoublePendulum(MplMap):
         self.plotsize = 1.10 * (self.length_r1 + self.length_r2)
 
         # initial state
-        self.theta1_initial = + 120 / 180 * np.pi
-        self.theta2_initial = + 180 / 180 * np.pi
+        if angle1 and angle2:
+            self.theta1_initial = np.radians(angle1)
+            self.theta2_initial = np.radians(angle2)
+        else:
+            self.theta1_initial = + 120 / 180 * np.pi
+            self.theta2_initial = + 180 / 180 * np.pi
         self.theta1_dot_initial = 0
         self.theta2_dot_initial = 0
         self.theta1 = self.theta1_initial
@@ -323,17 +330,6 @@ class DoublePendulum(MplMap):
         return x, y
 
     def blip(self):
-        # self.bob1.figure.canvas.draw()
-        # self.bob2.figure.canvas.draw()
-        # self.stick1.figure.canvas.draw()
-        # self.stick2.figure.canvas.draw()
-        # self.trace_line.figure.canvas.draw()
-        # self.bob1.figure.canvas.flush_events()
-        # self.bob2.figure.canvas.flush_events()
-        # self.stick1.figure.canvas.flush_events()
-        # self.stick2.figure.canvas.flush_events()
-        # self.trace_line.figure.canvas.flush_events()
-
         self.fig_pendulum.canvas.draw()
         self.fig_pendulum.canvas.flush_events()
 
@@ -385,7 +381,6 @@ class DoublePendulum(MplMap):
                       f'drift: {1000*(running_time - _time):,.0f}')
 
         self._time = 0
-
         dp_integrator = ode(self.get_derivatives_double_pendulum).set_integrator('vode')
         state = np.array([self.theta1, self.theta1_dot_initial,
                           self.theta2, self.theta2_dot_initial])
@@ -459,14 +454,9 @@ class ThetaGraphs(MplMap):
         self.angle2_values.append(np.degrees(-PI + (theta2 - PI) % TWOPI))
         self.theta2_graph.set_data(self.time_values, self.angle2_values)
 
-
         self.fig_graphs.canvas.draw()
         self.fig_graphs.canvas.flush_events()
 
-        # self.theta1_graph.figure.canvas.draw()
-        # self.theta2_graph.figure.canvas.draw()
-        # self.theta1_graph.figure.canvas.flush_events()
-        # self.theta2_graph.figure.canvas.flush_events()
 
 class TkHandler():
     ''' Methods to handle the tkinter GUI and links with matplotlib canvases and pendulum
@@ -603,13 +593,14 @@ class TkHandler():
     def create_grid(self):
         tk.Grid.rowconfigure(self.root, 0, weight=1)
         tk.Grid.columnconfigure(self.root, 0, weight=1)
-        self.sliders_status_frame.grid(row=0, column=0, sticky=tk.NW)
-        self.cnvs_graphs.get_tk_widget().grid(
-            row=1, column=0, rowspan=1, columnspan=2, sticky=tk.W+tk.E+tk.N+tk.S)
+        self.sliders_status_frame.grid(
+            row=0, column=0, sticky=tk.NW)
         self.cnvs_pendulum.get_tk_widget().grid(
             row=0, column=1, rowspan=1, columnspan=1, sticky=tk.W+tk.E+tk.N+tk.S)
-        self.buttons_frame.grid(row=2, column=0, columnspan=2, sticky=tk.W)
-
+        self.cnvs_graphs.get_tk_widget().grid(
+            row=1, column=0, rowspan=1, columnspan=2, sticky=tk.W+tk.E+tk.N+tk.S)
+        self.buttons_frame.grid(
+            row=2, column=0, columnspan=2, sticky=tk.W)
 
     def _quit(self):
         self.pendulum.stop_swing()
@@ -660,12 +651,21 @@ class TkHandler():
         self.pendulum.stop_swing()
 
 
-def main():
+def main(angle1, angle2):
     root = tk.Tk()
     MplMap.settings(root, FIG_SIZE_PENDULUM, FIG_SIZE_GRAPHS)
     TkHandler(root, MplMap.get_cnvs_pendulum(),
-              MplMap.get_cnvs_graphs(), DoublePendulum())
-
+              MplMap.get_cnvs_graphs(), DoublePendulum(angle1, angle2))
 
 if __name__ == "__main__":
-    main()
+    main_arguments = sys.argv
+    angle1 = None
+    angle2 = None
+    if len(main_arguments) == 3:
+        try:
+            angle1 = float(main_arguments[1])
+            angle2 = float(main_arguments[2])
+        except ValueError:
+            print('invalid arguments, refer to defaults ..')
+
+    main(angle1, angle2)
