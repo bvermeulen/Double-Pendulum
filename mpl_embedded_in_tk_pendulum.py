@@ -21,8 +21,8 @@ FIG_SIZE_GRAPHS = (5, 1)
 update_label_interval_ms = 150
 fps = 24
 seconds_per_frame = 1 / fps
-time_window_graphs = 20
-update_graph_interval_s = 0.25
+time_window_graphs = 40
+update_graph_interval_s = 0.150
 
 
 class MplMap():
@@ -416,8 +416,6 @@ class ThetaGraphs(MplMap):
     ''' Method to display the theta1 and theta2 graphs
     '''
     def __init__(self):
-        self.time_window = time_window_graphs
-        self.time_base = 0
         self.time_values = []
         self.angle1_values = []
         self.angle2_values = []
@@ -425,34 +423,34 @@ class ThetaGraphs(MplMap):
             [0], [0], color='black', linewidth=0.5, zorder=2)
         self.theta2_graph, = self.ax_graph_2.plot(
             [0], [0], color='black', linewidth=0.5, zorder=2)
-        self.ax_graph_1.set_xlim(
-            self.time_base, self.time_base + self.time_window)
-        self.ax_graph_2.set_xlim(
-            self.time_base, self.time_base + self.time_window)
+        self.ax_graph_1.set_xlim(time_window_graphs, 0)
+        self.ax_graph_2.set_xlim(time_window_graphs, 0)
+        self.index = 0
 
     def plot_thetas(self, _time, theta1, theta2):
-        if _time % self.time_window < seconds_per_frame:
+        # reset when time is zero
+        if _time < seconds_per_frame:
+            self.angle1_values = []
+            self.angle2_values = []
+            self.time_values = []
+            self.index = 0
 
-            # reset when time is zero
-            if _time < seconds_per_frame:
-                self.time_base = -self.time_window
-                self.angle1_values = []
-                self.angle2_values = []
-                self.time_values = []
-
-            self.time_base += self.time_window
-            self.ax_graph_1.set_xlim(
-                self.time_base, self.time_base + self.time_window)
-            self.ax_graph_2.set_xlim(
-                self.time_base, self.time_base + self.time_window)
-
-        self.time_values.append(_time)
+        # build the time_values_list and trim the angle_values list
+        # so they keep the same length
+        if _time < time_window_graphs + update_graph_interval_s:
+            self.time_values.append(_time)
+            self.index += 1
+        else:
+            self.angle1_values.pop(0)
+            self.angle2_values.pop(0)
 
         self.angle1_values.append(np.degrees(-PI + (theta1 - PI) % TWOPI))
-        self.theta1_graph.set_data(self.time_values, self.angle1_values)
+        self.theta1_graph.set_data(self.time_values[:-self.index-1:-1],
+                                   self.angle1_values[-self.index:])
 
         self.angle2_values.append(np.degrees(-PI + (theta2 - PI) % TWOPI))
-        self.theta2_graph.set_data(self.time_values, self.angle2_values)
+        self.theta2_graph.set_data(self.time_values[:-self.index-1:-1],
+                                   self.angle2_values[-self.index:])
 
         self.fig_graphs.canvas.draw()
         self.fig_graphs.canvas.flush_events()
