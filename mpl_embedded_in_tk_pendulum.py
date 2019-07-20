@@ -1,6 +1,7 @@
 import sys
-import tkinter as tk
+from collections import deque
 import time
+import tkinter as tk
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import patches as mpl_patches
@@ -50,8 +51,6 @@ class MplMap():
         cls.ax_pendulum.spines['bottom'].set_position('zero')
         cls.ax_pendulum.spines['top'].set_color('none')
         cls.fig_pendulum.tight_layout()
-        cls.canvas_pendulum = FigureCanvasTkAgg(cls.fig_pendulum, master=cls.root)
-        cls.canvas_pendulum.get_tk_widget().configure(highlightthickness=1)
 
         cls.fig_graphs, (cls.ax_graph_1, cls.ax_graph_2) = plt.subplots(
             1, 2, figsize=fig_size_graphs)
@@ -66,17 +65,17 @@ class MplMap():
         cls.ax_graph_2.tick_params(axis='y', which='major', labelsize=6)
         cls.ax_graph_2.tick_params(axis='x', which='major', labelsize=6)
         cls.ax_graph_2.grid(True)
-
         cls.fig_graphs.tight_layout()
+
+        cls.canvas_pendulum = FigureCanvasTkAgg(cls.fig_pendulum, master=cls.root)
         cls.canvas_graphs = FigureCanvasTkAgg(cls.fig_graphs, master=cls.root)
-        cls.canvas_graphs.get_tk_widget().configure(highlightthickness=1, bg='yellow')
 
     @classmethod
-    def get_cnvs_pendulum(cls):
+    def get_canvas_pendulum(cls):
         return cls.canvas_pendulum
 
     @classmethod
-    def get_cnvs_graphs(cls):
+    def get_canvas_graphs(cls):
         return cls.canvas_graphs
 
 
@@ -95,7 +94,6 @@ class DoublePendulum(MplMap):
         self.mass_bob2 = 2.5
         self.color_bob1 = 'green'
         self.color_bob2 = 'red'
-        self.plotsize = 1.10 * (self.length_r1 + self.length_r2)
 
         # initial state
         if _a1 and _a2:
@@ -145,7 +143,7 @@ class DoublePendulum(MplMap):
         self.current_dragging = False
         self.break_the_loop = False
 
-        self.theta_graphs = ThetaGraphs()
+        self.monitor = Monitor()
         self.blip()
 
     def switch_colors_of_bob(self):
@@ -397,7 +395,7 @@ class DoublePendulum(MplMap):
             self.add_to_trace()
 
             if self._time % update_graph_interval_s < seconds_per_frame:
-                self.theta_graphs.plot_thetas(self._time, self.theta1, self.theta2)
+                self.monitor.plot_thetas(self._time, self.theta1, self.theta2)
 
             running_time = current_time() - actual_start_time
             check_drift(self._time, running_time)
@@ -412,11 +410,12 @@ class DoublePendulum(MplMap):
             self._time += seconds_per_frame
 
 
-class ThetaGraphs(MplMap):
-    ''' Method to display the theta1 and theta2 graphs
+class Monitor(MplMap):
+    ''' Class to monitor theta1 and theta2
     '''
     def __init__(self):
-        self.time_values = []
+        self.time_values_reversed = deque([])
+        self.time_reversed = []
         self.angle1_values = []
         self.angle2_values = []
         self.theta1_graph, = self.ax_graph_1.plot(
@@ -425,32 +424,32 @@ class ThetaGraphs(MplMap):
             [0], [0], color='black', linewidth=0.5, zorder=2)
         self.ax_graph_1.set_xlim(time_window_graphs, 0)
         self.ax_graph_2.set_xlim(time_window_graphs, 0)
-        self.index = 0
 
     def plot_thetas(self, _time, theta1, theta2):
+        ''' method to plot theta's in time_window_graphs, time is
+            passed time, so t=0 is now and t=20 is 20 seconds ago
+        '''
         # reset when time is zero
         if _time < seconds_per_frame:
             self.angle1_values = []
             self.angle2_values = []
-            self.time_values = []
-            self.index = 0
+            self.time_values_reversed = deque([])
+            self.time_reversed = []
 
-        # build the time_values_list and trim the angle_values list
-        # so they keep the same length
+        # build the time_reversed list (in reversed order to represent
+        # time passed) and trim the angle_values lists so they keep the
+        # a finite length
+        self.angle1_values.append(np.degrees(-PI + (theta1 - PI) % TWOPI))
+        self.angle2_values.append(np.degrees(-PI + (theta2 - PI) % TWOPI))
         if _time < time_window_graphs + update_graph_interval_s:
-            self.time_values.append(_time)
-            self.index += 1
+            self.time_values_reversed.appendleft(_time)
+            self.time_reversed = list(self.time_values_reversed)
         else:
             self.angle1_values.pop(0)
             self.angle2_values.pop(0)
 
-        self.angle1_values.append(np.degrees(-PI + (theta1 - PI) % TWOPI))
-        self.theta1_graph.set_data(self.time_values[:-self.index-1:-1],
-                                   self.angle1_values[-self.index:])
-
-        self.angle2_values.append(np.degrees(-PI + (theta2 - PI) % TWOPI))
-        self.theta2_graph.set_data(self.time_values[:-self.index-1:-1],
-                                   self.angle2_values[-self.index:])
+        self.theta1_graph.set_data(self.time_reversed, self.angle1_values)
+        self.theta2_graph.set_data(self.time_reversed, self.angle2_values)
 
         self.fig_graphs.canvas.draw()
         self.fig_graphs.canvas.flush_events()
@@ -462,9 +461,6 @@ class TkHandler():
 
         __init__:
             parameters:
-            :root: tk root
-            :cnvs_pendulum: maplotlib canvas showing the movement of the pendulum
-            :cnvs_graphs: matplotlib canvas showing the graphs of theta1 and theta2
             :doublependulum: class handling the doublependulum status and positions
 
         create_slider_status_frame:
@@ -493,10 +489,8 @@ class TkHandler():
         create_grid:
             Creates the GUI grid
     '''
-    def __init__(self, root, cnvs_pendulum, cnvs_graphs, doublependulum):
+    def __init__(self, root, doublependulum):
         self.root = root
-        self.cnvs_pendulum = cnvs_pendulum
-        self.cnvs_graphs = cnvs_graphs
         self.pendulum = doublependulum
 
         self.root.wm_title("Double Pendulum")
@@ -554,7 +548,7 @@ class TkHandler():
         self.label_status5.pack(anchor=tk.W)
 
         sliders_frame.pack(anchor=tk.NW)
-        status_frame.pack(anchor=tk.W)
+        status_frame.pack(anchor=tk.W, fill=tk.X)
 
     def update_labels(self):
         self.label_status1.config(
@@ -593,10 +587,12 @@ class TkHandler():
         tk.Grid.columnconfigure(self.root, 0, weight=1)
         self.sliders_status_frame.grid(
             row=0, column=0, sticky=tk.NW)
-        self.cnvs_pendulum.get_tk_widget().grid(
-            row=0, column=1, rowspan=1, columnspan=1, sticky=tk.W+tk.E+tk.N+tk.S)
-        self.cnvs_graphs.get_tk_widget().grid(
-            row=1, column=0, rowspan=1, columnspan=2, sticky=tk.W+tk.E+tk.N+tk.S)
+        self.pendulum.get_canvas_pendulum().get_tk_widget().grid(
+            row=0, column=1, rowspan=1, columnspan=1, sticky=tk.W+tk.E+tk.N+tk.S,
+            padx=2, pady=0)
+        self.pendulum.get_canvas_graphs().get_tk_widget().grid(
+            row=1, column=0, rowspan=1, columnspan=2, sticky=tk.W+tk.E+tk.N+tk.S,
+            padx=2, pady=2)
         self.buttons_frame.grid(
             row=2, column=0, columnspan=2, sticky=tk.W)
 
@@ -652,8 +648,7 @@ class TkHandler():
 def main(_a1, _a2):
     root = tk.Tk()
     MplMap.settings(root, FIG_SIZE_PENDULUM, FIG_SIZE_GRAPHS)
-    TkHandler(root, MplMap.get_cnvs_pendulum(),
-              MplMap.get_cnvs_graphs(), DoublePendulum(_a1, _a2))
+    TkHandler(root, DoublePendulum(_a1, _a2))
 
 if __name__ == "__main__":
     main_arguments = sys.argv
