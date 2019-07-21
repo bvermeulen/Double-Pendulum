@@ -1,8 +1,8 @@
-import tkinter as tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from collections import deque
 import time
+import tkinter as tk
 import numpy as np
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 
 global stop_monitor
@@ -142,19 +142,18 @@ def main():
         'key_press_event', lambda event: key_start(monitor))
 
     button_frame = tk.Frame(master=root)
-    button_start = tk.Button(button_frame,
-        text='start', command=lambda: _start(monitor)
-    ).pack(anchor=tk.W, side=tk.LEFT)
-    button_stop = tk.Button(button_frame,
-        text='stop', command=lambda: _stop()
-    ).pack(side=tk.LEFT)
-    button_exit = tk.Button(button_frame,
-        text='exit', command=lambda: _exit(root)
-    ).pack(side=tk.LEFT)
+    tk.Button(
+        button_frame, text='start', command=lambda: _start(monitor)).pack(side=tk.LEFT)
+    tk.Button(
+        button_frame, text='stop', command=lambda: _stop()).pack(side=tk.LEFT)
+    tk.Button(
+        button_frame, text='exit', command=lambda: _exit(root)).pack(side=tk.LEFT)
 
     monitor_canvas.get_tk_widget().pack()
     button_frame.pack(side=tk.LEFT)
-    # run_monitor(monitor, True)
+
+    run_monitor(monitor)
+
     tk.mainloop()
 
 if __name__ == "__main__":
