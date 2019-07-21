@@ -17,13 +17,13 @@ X_MIN, X_MAX = -10, 10
 Y_MIN, Y_MAX = -10, 10
 TICK_INTERVAL = 1.5
 
-FIG_SIZE_GRAPHS = (5, 1)
+FIG_SIZE_MONITOR = (5, 1)
 
 update_label_interval_ms = 150
 fps = 24
 seconds_per_frame = 1 / fps
-time_window_graphs = 40
-update_graph_interval_s = 0.150
+time_window_monitor_s = 40
+update_monitor_interval_s = 0.150
 
 
 class MplMap():
@@ -32,7 +32,7 @@ class MplMap():
         fig_graphs: has two ax showing plots of theta1 and theta2
     '''
     @classmethod
-    def settings(cls, root, fig_size_pendulum, fig_size_graphs):
+    def settings(cls, root, fig_size_pendulum, fig_size_monitor):
         # set the plot outline, including axes going through the origin
         cls.root = root
 
@@ -52,31 +52,31 @@ class MplMap():
         cls.ax_pendulum.spines['top'].set_color('none')
         cls.fig_pendulum.tight_layout()
 
-        cls.fig_graphs, (cls.ax_graph_1, cls.ax_graph_2) = plt.subplots(
-            1, 2, figsize=fig_size_graphs)
-        cls.ax_graph_1.set_ylim(-180, 180)
-        cls.ax_graph_1.set_yticks([-180, -90, 0, 90, 180])
-        cls.ax_graph_1.tick_params(axis='y', which='major', labelsize=6)
-        cls.ax_graph_1.tick_params(axis='x', which='major', labelsize=6)
-        cls.ax_graph_1.grid(True)
+        cls.fig_monitor, (cls.ax_monitor_1, cls.ax_monitor_2) = plt.subplots(
+            1, 2, figsize=fig_size_monitor)
+        cls.ax_monitor_1.set_ylim(-180, 180)
+        cls.ax_monitor_1.set_yticks([-180, -90, 0, 90, 180])
+        cls.ax_monitor_1.tick_params(axis='y', which='major', labelsize=6)
+        cls.ax_monitor_1.tick_params(axis='x', which='major', labelsize=6)
+        cls.ax_monitor_1.grid(True)
 
-        cls.ax_graph_2.set_ylim(-190, 190)
-        cls.ax_graph_2.set_yticks([-180, -90, 0, 90, 180])
-        cls.ax_graph_2.tick_params(axis='y', which='major', labelsize=6)
-        cls.ax_graph_2.tick_params(axis='x', which='major', labelsize=6)
-        cls.ax_graph_2.grid(True)
-        cls.fig_graphs.tight_layout()
+        cls.ax_monitor_2.set_ylim(-190, 190)
+        cls.ax_monitor_2.set_yticks([-180, -90, 0, 90, 180])
+        cls.ax_monitor_2.tick_params(axis='y', which='major', labelsize=6)
+        cls.ax_monitor_2.tick_params(axis='x', which='major', labelsize=6)
+        cls.ax_monitor_2.grid(True)
+        cls.fig_monitor.tight_layout()
 
         cls.canvas_pendulum = FigureCanvasTkAgg(cls.fig_pendulum, master=cls.root)
-        cls.canvas_graphs = FigureCanvasTkAgg(cls.fig_graphs, master=cls.root)
+        cls.canvas_monitor = FigureCanvasTkAgg(cls.fig_monitor, master=cls.root)
 
     @classmethod
     def get_canvas_pendulum(cls):
         return cls.canvas_pendulum
 
     @classmethod
-    def get_canvas_graphs(cls):
-        return cls.canvas_graphs
+    def get_canvas_monitor(cls):
+        return cls.canvas_monitor
 
 
 class DoublePendulum(MplMap):
@@ -394,7 +394,7 @@ class DoublePendulum(MplMap):
             self.calc_positions()
             self.add_to_trace()
 
-            if self._time % update_graph_interval_s < seconds_per_frame:
+            if self._time % update_monitor_interval_s < seconds_per_frame:
                 self.monitor.plot_thetas(self._time, self.theta1, self.theta2)
 
             running_time = current_time() - actual_start_time
@@ -418,16 +418,16 @@ class Monitor(MplMap):
         self.time_reversed = []
         self.angle1_values = []
         self.angle2_values = []
-        self.theta1_graph, = self.ax_graph_1.plot(
+        self.theta1_monitor, = self.ax_monitor_1.plot(
             [0], [0], color='black', linewidth=0.5, zorder=2)
-        self.theta2_graph, = self.ax_graph_2.plot(
+        self.theta2_monitor, = self.ax_monitor_2.plot(
             [0], [0], color='black', linewidth=0.5, zorder=2)
-        self.ax_graph_1.set_xlim(time_window_graphs, 0)
-        self.ax_graph_2.set_xlim(time_window_graphs, 0)
+        self.ax_monitor_1.set_xlim(time_window_monitor_s, 0)
+        self.ax_monitor_2.set_xlim(time_window_monitor_s, 0)
 
     def plot_thetas(self, _time, theta1, theta2):
         ''' method to plot theta's in time_window_graphs, time is
-            passed time, so t=0 is now and t=20 is 20 seconds ago
+            past time, so t=0 is now and t=20 is 20 seconds ago
         '''
         # reset when time is zero
         if _time < seconds_per_frame:
@@ -441,18 +441,18 @@ class Monitor(MplMap):
         # a finite length
         self.angle1_values.append(np.degrees(-PI + (theta1 - PI) % TWOPI))
         self.angle2_values.append(np.degrees(-PI + (theta2 - PI) % TWOPI))
-        if _time < time_window_graphs + update_graph_interval_s:
+        if _time < time_window_monitor_s + update_monitor_interval_s:
             self.time_values_reversed.appendleft(_time)
             self.time_reversed = list(self.time_values_reversed)
         else:
             self.angle1_values.pop(0)
             self.angle2_values.pop(0)
 
-        self.theta1_graph.set_data(self.time_reversed, self.angle1_values)
-        self.theta2_graph.set_data(self.time_reversed, self.angle2_values)
+        self.theta1_monitor.set_data(self.time_reversed, self.angle1_values)
+        self.theta2_monitor.set_data(self.time_reversed, self.angle2_values)
 
-        self.fig_graphs.canvas.draw()
-        self.fig_graphs.canvas.flush_events()
+        self.fig_monitor.canvas.draw()
+        self.fig_monitor.canvas.flush_events()
 
 
 class TkHandler():
@@ -590,7 +590,7 @@ class TkHandler():
         self.pendulum.get_canvas_pendulum().get_tk_widget().grid(
             row=0, column=1, rowspan=1, columnspan=1, sticky=tk.W+tk.E+tk.N+tk.S,
             padx=2, pady=0)
-        self.pendulum.get_canvas_graphs().get_tk_widget().grid(
+        self.pendulum.get_canvas_monitor().get_tk_widget().grid(
             row=1, column=0, rowspan=1, columnspan=2, sticky=tk.W+tk.E+tk.N+tk.S,
             padx=2, pady=2)
         self.buttons_frame.grid(
@@ -647,7 +647,7 @@ class TkHandler():
 
 def main(_a1, _a2):
     root = tk.Tk()
-    MplMap.settings(root, FIG_SIZE_PENDULUM, FIG_SIZE_GRAPHS)
+    MplMap.settings(root, FIG_SIZE_PENDULUM, FIG_SIZE_MONITOR)
     TkHandler(root, DoublePendulum(_a1, _a2))
 
 if __name__ == "__main__":
