@@ -12,6 +12,8 @@ from scipy.integrate import ode
 TWOPI = 2*np.pi
 PI = np.pi
 
+
+# matplotlib canvas sizes
 FIG_SIZE_PENDULUM = (5, 5)
 X_MIN, X_MAX = -10, 10
 Y_MIN, Y_MAX = -10, 10
